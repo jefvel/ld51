@@ -1,46 +1,51 @@
 package entities;
 
+import elk.aseprite.AsepriteRes;
 import elk.graphics.Sprite;
-import hxd.Key;
-import h2d.Tile;
 import h2d.Bitmap;
-import elk.graphics.Animation;
 
-class TestEntity extends elk.entity.Entity {
+
+enum Team {
+	Friendly;
+	Enemy;
+}
+
+class Prisoner extends elk.entity.Entity {
 	var bm:Bitmap = null;
 	var lx = 0.;
 	var ly = 0.;
 	var data: CData.Character;
 	var sprite : Sprite;
-
+	
+	var input = Controls.instance;
+	
+	public var team: Team = Friendly;
+	
 	public function new(?p) {
-		data = CData.character.get(Man);
-		friction = 10.;
-		sprite = hxd.Res.img.ball.toSprite(p);
-		sprite.originX = 32;
+		data = CData.character.get(Player);
+		friction = 20.;
+		sprite = hxd.Res.loader.loadCache(data.Sprite, AsepriteRes).toSprite(p);
+		sprite.originX = 8;
 		t = Math.random() * 30;
-		sprite.originY = 64;
+		sprite.originY = 32;
+		elk.Elk.instance.entities.add(this);
 	}
 
 	var t = 0.;
 	override function tick(dt:Float) {
 		super.tick(dt);
-		t+=dt;
-		sprite.rotation = Math.sin(t) * .3;
+		t += dt;
 
 		var sp = data.MoveSpeed * 10000 * dt;
-		if (Key.isDown(Key.A)) {
-			ax -= sp;
-		}
-		if (Key.isDown(Key.D)) {
-			ax += sp;
-		}
+		var ix = input.getAnalogValue(WalkX);
+		var iy = input.getAnalogValue(WalkY);
+		ax += ix * sp;
+		ay += iy * sp;
 		
-		if (Key.isDown(Key.W)) {
-			ay -= sp;
-		}
-		if (Key.isDown(Key.S)) {
-			ay += sp;
+		if (ix < 0) {
+			sprite.scaleX = -1;
+		} else if (ix > 0) {
+			sprite.scaleX = 1;
 		}
 
 		var dSq = hxd.Math.distanceSq(vy, vx);
@@ -57,6 +62,12 @@ class TestEntity extends elk.entity.Entity {
 			//elk.Elk.instance.sounds.playSound(hxd.Res.sound.click);
 			lx = x;
 			ly = y;
+		}
+
+		if (dSq > 10 * 10) {
+			sprite.animation.play("walk");
+		} else {
+			sprite.animation.play("idle");
 		}
 	}
 

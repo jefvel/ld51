@@ -39,6 +39,15 @@
 					"kind": null
 				},
 				{
+					"typeStr": "13",
+					"name": "Sprite",
+					"kind": null
+				},
+				{
+					"typeStr": "4",
+					"name": "Health"
+				},
+				{
 					"typeStr": "4",
 					"name": "MoveSpeed",
 					"kind": null
@@ -51,10 +60,12 @@
 			],
 			"lines": [
 				{
-					"ID": "Man",
-					"Name": "A Man",
-					"MaxSpeed": 700,
-					"MoveSpeed": 8
+					"ID": "Player",
+					"Name": "Player",
+					"MaxSpeed": 70,
+					"MoveSpeed": 8,
+					"Health": 10,
+					"Sprite": "img/man.aseprite"
 				}
 			],
 			"separators": [],

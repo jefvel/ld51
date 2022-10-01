@@ -3,10 +3,10 @@
 ###
 
 ## Window
--D windowTitle=Game Base
--D windowSize=1280x720
+-D windowTitle=Near Death Sentence
+-D windowSize=948x532
 # Sets the default color of the scene + html background
--D backgroundColor=#0a0a0a
+-D backgroundColor=#0c0b0a
 
 -D tickRate=60
 
@@ -14,11 +14,11 @@
 -D ldtkCastle=CData
 
 # Uncomment if you want a static sized window size
-#-D windowFixed
+-D windowFixed
 
 ## Saves
 # Change this to a unique identifier for your game
--D saveNamespace=jefvel.gamebase
+-D saveNamespace=jefvel.ld51
 
 ## HTML/Js Specific values
 # Twitter card
