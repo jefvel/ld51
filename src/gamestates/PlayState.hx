@@ -1,5 +1,9 @@
 package gamestates;
 
+import h2d.filter.ColorMatrix;
+import entities.SafeZone;
+import h2d.Graphics;
+import entities.Actor;
 import elk.util.EasedFloat;
 import h2d.Bitmap;
 import elk.graphics.filter.RetroFilter;
@@ -10,12 +14,12 @@ import h2d.Text;
 import elk.gamestate.GameState;
 
 class PlayState extends GameState {
-	var tickRateTxt: Text;
-	
 	var controls = Controls.instance;
 	var arm: Bitmap;
 	var time = 0.;
 	var secondProgress = 0.;
+	
+	var checkTime = 2.;
 
 	var currentSecond = 0;
 	var interval = 10;
@@ -25,10 +29,24 @@ class PlayState extends GameState {
 	var world: Object;
 	var f: RetroFilter;
 	var bg: Object;
+	var fg: Object;
+
+	var safeZoneContainer: Object;
+	public var actors: h2d.ZGroup;
+
 	var player: Prisoner;
+
 	var level: Levels_Level;
 	
-	var ents: Array<elk.entity.Entity> = [];
+	var ents: Array<Actor> = [];
+
+	public var physics: echo.World;
+	var statics : Array<echo.Body>= [];
+	var dynamics: Array<echo.Body> = [];
+	
+	var debugGraphics: Graphics;
+	
+	public var safeZones: Array<SafeZone> = [];
 
 	public function new() {
 		super();
@@ -36,24 +54,64 @@ class PlayState extends GameState {
 	
 	override function onEnter() {
 		super.onEnter();
+
 		armRotation.easeFunction = elk.M.elasticOut;
 
-		f = new RetroFilter(0.6, 0.2, 0.3);
+		f = new RetroFilter(0.6, 0.2, 0.2);
 		game.s2d.filter = f;
 
 		container = new Object(s2d);
 		world = new Object(container);
-		world.filter = new h2d.filter.Nothing();
+		world.filter = new h2d.filter.ColorMatrix(h3d.Matrix.S(1.1, 1.1, 1.2));
+
 		bg = new Object(world);
+		safeZoneContainer = new Object();
+		actors = new h2d.ZGroup(world);
+		
+		fg = new Object(world);
+
+		debugGraphics = new Graphics(world);
+
 		var allLevels = new Levels();
 		
 		var l = allLevels.all_levels.Level_0;
-		level = l;
-		bg.addChild(l.l_Tiles.render());
-		//sy.easeFunction = elk.T.elasticOut;
 
-		tickRateTxt = new Text(DefaultFont.get(), s2d);
-		tickRateTxt.textColor = 0xffffff;
+		loadLevel(l);
+	}
+	
+	function loadLevel(l: Levels_Level) {
+		bg.removeChildren();
+		fg.removeChildren();
+		actors.removeChildren();
+		
+		level = l;
+		physics = echo.Echo.start({
+			width: level.pxWid,
+			height: level.pxHei,
+			gravity_y: 0,
+			iterations: 2
+		});
+		
+		for (coll in level.l_Collisions.all_CollisionBox) {
+			var body = physics.make({
+				mass: STATIC,
+				material: {elasticity: 1},
+				x: coll.pixelX + coll.width * 0.5,
+				y: coll.pixelY + coll.height * 0.5,
+				shape: {
+					type: RECT,
+					width: coll.width,
+					height: coll.height,
+				},
+			});
+
+			statics.push(body);
+		}
+		
+		hxd.Res.img.tiles.toTile();
+
+		bg.addChild(l.l_Tiles.render());
+		fg.addChild(l.l_Foreground.render());
 
 		var face = new Bitmap(hxd.Res.img.clockface.toTile(), world);
 		face.tile.dx = face.tile.dy = -16;
@@ -65,10 +123,13 @@ class PlayState extends GameState {
 		face.x = armPos.pixelX;
 		face.y = armPos.pixelY;
 		
-		player = new Prisoner(world);
+		player = new Prisoner(Player, this);
+
 		var spawnPos = l.l_Entities.all_PlayerSpawn[0];
-		player.x = spawnPos.pixelX;
-		player.y = spawnPos.pixelY;
+		player.setPos(spawnPos.pixelX, spawnPos.pixelY);
+
+		dynamics.push(player.body);
+
 		ents.push(player);
 	}
 	
@@ -95,11 +156,18 @@ class PlayState extends GameState {
 		intervalsBeaten ++;
 	}
 	
+	var ticked = false;
 	function passTime(dt: Float) {
 		secondProgress += dt;
 		if (secondProgress >= 1) {
 			secondProgress -= 1;
 			currentSecond ++;
+			ticked = !ticked;
+			if (ticked) {
+				game.sounds.playSound(hxd.Res.sound.tick, 0.2);
+			} else {
+				game.sounds.playSound(hxd.Res.sound.tock, 0.2);
+			}
 			if (currentSecond >= interval) {
 				currentSecond = 0;
 				intervalComplete();
@@ -114,7 +182,17 @@ class PlayState extends GameState {
 
 		passTime(dt);
 		arm.rotation = armRotation.value;
-		
+
+		for (e in ents) {
+			e.preTick();
+		}
+
+		for (e in ents) {
+			e.tick(dt);
+		}
+
+		physics.check(dynamics, statics, { separate: true });
+
 		// f.transition = Math.sin(time);
 
 		updateCamBounds();
@@ -122,8 +200,16 @@ class PlayState extends GameState {
 	
 	override function update(dt: Float) {
 		super.update(dt);
+		
+		for (e in ents) {
+			e.render();
+		}
+		
+		actors.ysort(0);
+
 		var w = Math.floor((game.s2d.width - level.pxWid) * 0.5);
 		var h = Math.floor((game.s2d.width - level.pxWid) * 0.5);
+
 		world.x = w;
 		world.y = h;
 	}

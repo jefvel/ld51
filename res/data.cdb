@@ -44,12 +44,26 @@
 					"kind": null
 				},
 				{
+					"typeStr": "8",
+					"name": "FrameEvents"
+				},
+				{
+					"typeStr": "4",
+					"name": "AttackCooldown",
+					"kind": null
+				},
+				{
 					"typeStr": "4",
 					"name": "Health"
 				},
 				{
 					"typeStr": "4",
 					"name": "MoveSpeed",
+					"kind": null
+				},
+				{
+					"typeStr": "4",
+					"name": "Radius",
 					"kind": null
 				},
 				{
@@ -65,11 +79,63 @@
 					"MaxSpeed": 70,
 					"MoveSpeed": 8,
 					"Health": 10,
-					"Sprite": "img/man.aseprite"
+					"Sprite": "img/man.aseprite",
+					"Radius": 7,
+					"FrameEvents": [
+						{
+							"Frame": 10,
+							"Event": 1
+						},
+						{
+							"Frame": 4,
+							"Event": 0
+						},
+						{
+							"Frame": 7,
+							"Event": 0
+						}
+					],
+					"AttackCooldown": 0.2
+				},
+				{
+					"ID": "Enemy",
+					"Name": "Enemy",
+					"Sprite": "img/enemy.aseprite",
+					"Health": 5,
+					"MoveSpeed": 7,
+					"Radius": 7,
+					"MaxSpeed": 60,
+					"FrameEvents": [
+						{
+							"Frame": 8,
+							"Event": 1
+						}
+					],
+					"AttackCooldown": 0.25
 				}
 			],
 			"separators": [],
 			"props": {}
+		},
+		{
+			"name": "character@FrameEvents",
+			"props": {
+				"hide": true
+			},
+			"separators": [],
+			"lines": [],
+			"columns": [
+				{
+					"typeStr": "3",
+					"name": "Frame",
+					"kind": null
+				},
+				{
+					"typeStr": "5:Step,Attack",
+					"name": "Event",
+					"kind": null
+				}
+			]
 		}
 	],
 	"customTypes": [],

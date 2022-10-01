@@ -28,6 +28,7 @@ class Controls {
 		input.bindKeyboard(Use, Key.E);
 		input.bindKeyboardAsStickXY(WalkX, WalkY, Key.W, Key.A, Key.S, Key.D);
 		input.bindKeyboardAsStickXY(WalkX, WalkY, Key.UP, Key.LEFT, Key.DOWN, Key.RIGHT);
+		input.bindKeyboard(Attack, [Key.SPACE, Key.X, Key.K]);
 	}
 	
 	static function get_instance() {
