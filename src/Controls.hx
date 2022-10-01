@@ -9,6 +9,7 @@ enum abstract GameControls(Int) to Int {
 	var WalkY;
 	var Use;
 	var Attack;
+	var ResetGame;
 }
 
 class Controls {
@@ -29,6 +30,7 @@ class Controls {
 		input.bindKeyboardAsStickXY(WalkX, WalkY, Key.W, Key.A, Key.S, Key.D);
 		input.bindKeyboardAsStickXY(WalkX, WalkY, Key.UP, Key.LEFT, Key.DOWN, Key.RIGHT);
 		input.bindKeyboard(Attack, [Key.SPACE, Key.X, Key.K]);
+		input.bindKeyboard(ResetGame, [Key.R]);
 	}
 	
 	static function get_instance() {

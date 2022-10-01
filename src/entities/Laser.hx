@@ -6,13 +6,14 @@ import h2d.Bitmap;
 class Laser extends Actor {
 	public var scanTime = 0.;
 	var totalScanTime = 0.6;
-	var scanning = false;
+	public var scanning = false;
 	var laser: Bitmap;
 
 	var scanned: Array<Prisoner> = [];
 	var state: PlayState = null;
 	
 	var failedPrisoners: Array<Prisoner> = [];
+	public var onScanDone : Void -> Void;
 
 	public function new(state: PlayState, ?p) {
 		this.state = state;
@@ -25,8 +26,12 @@ class Laser extends Actor {
 		scanning = true;
 		scanTime = 0;
 		scanned = [];
-		failedPrisoners = [];
+		untilNextFail = 0.4;
+		state.game.sounds.playWobble(hxd.Res.sound.scan, 0.2);
+		exhaustedZones = [];
 	}
+	
+	var exhaustedZones: Array<entities.SafeZone> = [];
 	
 	override function tick(dt:Float) {
 		super.tick(dt);
@@ -44,19 +49,35 @@ class Laser extends Actor {
 					
 					scanned.push(p);
 					
-					if (state.inSafeZone(p.x, p.y)) {
-						trace("prisoner is safe");
+					var zone = state.inSafeZone(p.x, p.y);
+					if (zone != null) {
 						p.flashGreen();
+						exhaustedZones.push(zone);
 					} else {
 						failedPrisoners.push(p);
-						trace("Prisoner is no good");
 					}
 				}
 			}
 			
 			if (scanTime >= totalScanTime) {
 				scanning = false;
+				var z = exhaustedZones.randomElement();
+				if (z != null) {
+					z.isActive = false;
+				}
+				if (onScanDone != null) {
+					onScanDone();
+				}
+			}
+		} else {
+			if (failedPrisoners.length > 0) {
+				untilNextFail -= dt;
+				if (untilNextFail < 0) {
+					untilNextFail = 0.1;
+					failedPrisoners.shift().disintegrate();
+				}
 			}
 		}
 	}
+	var untilNextFail = 0.1;
 }
