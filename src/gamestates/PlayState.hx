@@ -1,5 +1,7 @@
 package gamestates;
 
+import h2d.col.Point;
+import entities.Laser;
 import h2d.filter.ColorMatrix;
 import entities.SafeZone;
 import h2d.Graphics;
@@ -9,8 +11,6 @@ import h2d.Bitmap;
 import elk.graphics.filter.RetroFilter;
 import h2d.Object;
 import entities.Prisoner;
-import hxd.res.DefaultFont;
-import h2d.Text;
 import elk.gamestate.GameState;
 
 class PlayState extends GameState {
@@ -19,26 +19,32 @@ class PlayState extends GameState {
 	var time = 0.;
 	var secondProgress = 0.;
 	
-	var checkTime = 2.;
+	var checkTime = 3.;
 
 	var currentSecond = 0;
 	var interval = 10;
+	var timeUntilScan = 10.;
 	var armRotation = new EasedFloat(-Math.PI * 0.5, 0.3);
 	
 	var container: Object;
 	var world: Object;
+	var worldMask:Bitmap;
 	var f: RetroFilter;
 	var bg: Object;
 	var fg: Object;
 
 	var safeZoneContainer: Object;
-	public var actors: h2d.ZGroup;
+	public var characterLayer: h2d.ZGroup;
+	var laserContainer: Object;
 
 	var player: Prisoner;
+	
+	var laser: Laser;
 
 	var level: Levels_Level;
 	
-	var ents: Array<Actor> = [];
+	public var actors: Array<Actor> = [];
+	public var prisoners: Array<Prisoner> = [];
 
 	public var physics: echo.World;
 	var statics : Array<echo.Body>= [];
@@ -62,11 +68,16 @@ class PlayState extends GameState {
 
 		container = new Object(s2d);
 		world = new Object(container);
-		world.filter = new h2d.filter.ColorMatrix(h3d.Matrix.S(1.1, 1.1, 1.2));
+		worldMask = new Bitmap(h2d.Tile.fromColor(0xffffff), world);
+		world.filter = new h2d.filter.Group([
+			new ColorMatrix(h3d.Matrix.S(1.1, 1.1, 1.2)),
+			new h2d.filter.Mask(worldMask),
+		]);
 
 		bg = new Object(world);
-		safeZoneContainer = new Object();
-		actors = new h2d.ZGroup(world);
+		safeZoneContainer = new Object(world);
+		characterLayer = new h2d.ZGroup(world);
+		laserContainer = new Object(world);
 		
 		fg = new Object(world);
 
@@ -82,9 +93,12 @@ class PlayState extends GameState {
 	function loadLevel(l: Levels_Level) {
 		bg.removeChildren();
 		fg.removeChildren();
-		actors.removeChildren();
+		characterLayer.removeChildren();
 		
 		level = l;
+		
+		worldMask.tile.scaleToSize(l.pxWid, l.pxHei);
+
 		physics = echo.Echo.start({
 			width: level.pxWid,
 			height: level.pxHei,
@@ -112,6 +126,13 @@ class PlayState extends GameState {
 
 		bg.addChild(l.l_Tiles.render());
 		fg.addChild(l.l_Foreground.render());
+		
+		for (z in l.l_SafeZones.all_SafeZone) {
+			var s = new SafeZone(safeZoneContainer);
+			s.x = z.pixelX;
+			s.y = z.pixelY;
+			safeZones.push(s);
+		}
 
 		var face = new Bitmap(hxd.Res.img.clockface.toTile(), world);
 		face.tile.dx = face.tile.dy = -16;
@@ -123,14 +144,36 @@ class PlayState extends GameState {
 		face.x = armPos.pixelX;
 		face.y = armPos.pixelY;
 		
+		laser = new Laser(this, laserContainer);
+		
 		player = new Prisoner(Player, this);
-
+		player.controlled = true;
 		var spawnPos = l.l_Entities.all_PlayerSpawn[0];
 		player.setPos(spawnPos.pixelX, spawnPos.pixelY);
-
 		dynamics.push(player.body);
-
-		ents.push(player);
+		
+		for (i in 0...7) {
+			spawnPrisoner();
+		}
+	}
+	
+	public function spawnPrisoner() {
+		var p = new Prisoner(Enemy, this);
+		var s = level.l_Entities.all_EnemySpawn[0];
+		p.setPos(s.pixelX + s.width * Math.random(), s.pixelY + s.height * Math.random());
+		dynamics.push(p.body);
+	}
+	
+	public function inSafeZone(x: Float, y: Float) {
+		for (s in safeZones) {
+			if (x > s.x && x < s.x + s.width) {
+				if (y > s.y && y < s.y + s.height) {
+					return true;
+				}
+			}
+		}
+		
+		return false;
 	}
 	
 	function updateCamBounds() {
@@ -154,6 +197,7 @@ class PlayState extends GameState {
 	var intervalsBeaten = 0;
 	function intervalComplete() {
 		intervalsBeaten ++;
+		laser.startScan();
 	}
 	
 	var ticked = false;
@@ -174,6 +218,8 @@ class PlayState extends GameState {
 			}
 			armRotation.value = (intervalsBeaten + currentSecond / interval) * Math.PI * 2 - Math.PI * 0.5;
 		}
+
+		timeUntilScan = interval - (secondProgress + currentSecond);
 	}
 
 	override function tick(dt:Float) {
@@ -183,34 +229,67 @@ class PlayState extends GameState {
 		passTime(dt);
 		arm.rotation = armRotation.value;
 
-		for (e in ents) {
+		for (e in actors) {
 			e.preTick();
 		}
 
-		for (e in ents) {
+		for (e in actors) {
 			e.tick(dt);
 		}
+		
 
-		physics.check(dynamics, statics, { separate: true });
-
+		physics.check(dynamics, statics);
+		physics.check(dynamics, dynamics);
+		
 		// f.transition = Math.sin(time);
 
 		updateCamBounds();
 	}
 	
+	public function findTarget(attacker: Prisoner, dirX = 1.): Prisoner {
+		var d = new Point();
+		var d2 = new Point(dirX, 0);
+
+		for (p in prisoners) {
+			if (p == attacker) {
+				continue;
+			}
+			
+			d.set(p.x - attacker.x, p.y - attacker.y);
+
+			if (d.normalized().dot(d2) < 0.3) {
+				continue;
+			}
+
+			var prSq = attacker.data.Radius + p.data.Radius + attacker.data.AttackRange;
+			prSq = prSq * prSq;
+			
+			if (d.lengthSq() < prSq) {
+				return p;
+			}
+		}
+		
+		return null;
+	}
+	
 	override function update(dt: Float) {
 		super.update(dt);
 		
-		for (e in ents) {
+		for (e in actors) {
 			e.render();
 		}
 		
-		actors.ysort(0);
+		characterLayer.ysort(0);
 
 		var w = Math.floor((game.s2d.width - level.pxWid) * 0.5);
 		var h = Math.floor((game.s2d.width - level.pxWid) * 0.5);
 
 		world.x = w;
 		world.y = h;
+
+		var sfAlpha = (timeUntilScan < checkTime || secondProgress + currentSecond < 0.5) ? 1.0 : 0.1;
+		for (s in safeZones) {
+			s.alpha = sfAlpha;
+		}
 	}
 }

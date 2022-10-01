@@ -1,13 +1,12 @@
 package entities;
 
-class SafeZone {
-	public var x = 0.;
-	public var y = 0.;
-	public var width = 0.;
-	public var height = 0.;
+import h2d.Bitmap;
+
+class SafeZone extends Bitmap {
 	public var isActive = true;
 	
-	public function new() {
-		
+	public function new(?p) {
+		super(hxd.Res.img.safezone.toTile(), p);
+		width = height = 32;
 	}
 }

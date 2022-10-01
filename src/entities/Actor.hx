@@ -1,5 +1,7 @@
 package entities;
 
+import gamestates.PlayState;
+
 class Actor {
 	public var x: Float = 0.;
 	var _prevX = 0.;
@@ -23,6 +25,10 @@ class Actor {
 	public var friction(default, set) = 1.01;
 	var frictionDirty = true;
 	var _fixedFriction = 1.0;
+	
+	public function new(state: PlayState) {
+		state.actors.push(this);
+	}
 
 	public function tick(dt: Float) {
 		var fric = 1 / (1 + (dt * friction));

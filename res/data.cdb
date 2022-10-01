@@ -54,6 +54,11 @@
 				},
 				{
 					"typeStr": "4",
+					"name": "AttackRange",
+					"kind": null
+				},
+				{
+					"typeStr": "4",
 					"name": "Health"
 				},
 				{
@@ -76,8 +81,8 @@
 				{
 					"ID": "Player",
 					"Name": "Player",
-					"MaxSpeed": 70,
-					"MoveSpeed": 8,
+					"MaxSpeed": 60,
+					"MoveSpeed": 3,
 					"Health": 10,
 					"Sprite": "img/man.aseprite",
 					"Radius": 7,
@@ -95,7 +100,8 @@
 							"Event": 0
 						}
 					],
-					"AttackCooldown": 0.2
+					"AttackCooldown": 0.2,
+					"AttackRange": 10
 				},
 				{
 					"ID": "Enemy",
@@ -104,14 +110,15 @@
 					"Health": 5,
 					"MoveSpeed": 7,
 					"Radius": 7,
-					"MaxSpeed": 60,
+					"MaxSpeed": 50,
 					"FrameEvents": [
 						{
 							"Frame": 8,
 							"Event": 1
 						}
 					],
-					"AttackCooldown": 0.25
+					"AttackCooldown": 0.25,
+					"AttackRange": 6
 				}
 			],
 			"separators": [],
