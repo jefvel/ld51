@@ -83,7 +83,7 @@
 					"Name": "Player",
 					"MaxSpeed": 60,
 					"MoveSpeed": 3,
-					"Health": 10,
+					"Health": 4,
 					"Sprite": "img/man.aseprite",
 					"Radius": 7,
 					"FrameEvents": [
@@ -107,10 +107,10 @@
 					"ID": "Enemy",
 					"Name": "Enemy",
 					"Sprite": "img/enemy.aseprite",
-					"Health": 5,
+					"Health": 3,
 					"MoveSpeed": 7,
 					"Radius": 7,
-					"MaxSpeed": 50,
+					"MaxSpeed": 6,
 					"FrameEvents": [
 						{
 							"Frame": 8,

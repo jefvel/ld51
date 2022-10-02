@@ -111,6 +111,11 @@ class Prisoner extends Actor {
 		} else {
 			sprite.scaleX = 1;
 		}
+
+		if (!controlled) {
+			attackTarget = hurter;
+		}
+
 		sprite.animation.play("hurt", false, true);
 	}
 	
@@ -225,6 +230,8 @@ class Prisoner extends Actor {
 		playState.removePrisoner(this);
 		smoke.remove();
 	}
+	
+	public var attackTarget : Prisoner = null;
 
 	var targetX = 0.;
 	var targetY = 0.;
@@ -250,6 +257,10 @@ class Prisoner extends Actor {
 				iy = input.getAnalogValue(WalkY);
 			}
 			
+			if (attackTarget != null && attackTarget.state == Dead) {
+				attackTarget = null;
+			}
+
 			if (!controlled) {
 				if (playState.timeUntilScan < 2 + cowardice * 2.5) {
 					var t = playState.findClosestSafeZone(x, y);
@@ -267,6 +278,39 @@ class Prisoner extends Actor {
 							else iy = 1;
 						}
 					}
+				} else 
+
+				if (attackTarget != null && state != Attacking) {
+					var tx = attackTarget.x;
+					if (tx > x) tx -= 16;
+					else tx += 16;
+
+					var dx = tx - x;
+					var dy = attackTarget.y - y;
+					var minDist = 9;
+					var inRange = true;
+					if (Math.abs(dx) > 3) {
+						if (dx < 0) ix = -1;
+						else ix = 1;
+						inRange = false;
+					}
+
+					if (Math.abs(dy) > minDist) {
+						if (dy < 0) iy = -1;
+						else iy = 1;
+						inRange = false;
+					}
+					
+					if (inRange) {
+						attack();
+					}
+				}
+
+				
+				var id = Math.sqrt(ix * ix + iy * iy);
+				if (id > 0) {
+					ix /= id;
+					iy /= id;
 				}
 			}
 
