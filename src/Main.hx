@@ -1,3 +1,4 @@
+import gamestates.IntroState;
 import gamestates.PlayState;
 
 class Main extends elk.Elk{
@@ -8,7 +9,11 @@ class Main extends elk.Elk{
 
 		CData.init();
 
-		app.states.current = new PlayState();
+		#if debug
+		app.states.current = new IntroState();
+		#else
+		app.states.current = new IntroState();
+		#end
 		sounds.sfxVolume = 2.0;
 		sounds.musicVolume = 2.8;
 	}

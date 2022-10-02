@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Font size="6" family="Minecraftia" height="12" style="Regular">
- <Char width="5" offset="-1 9" rect="1 8 2 2" code=" "/>
+ <Char width="5" offset="-1 9" rect="18 8 2 2" code=" "/>
  <Char width="2" offset="-1 2" rect="4 1 3 9" code="!"/>
  <Char width="5" offset="-1 2" rect="8 1 6 5" code="&quot;"/>
  <Char width="6" offset="-1 2" rect="15 1 7 9" code="#"/>

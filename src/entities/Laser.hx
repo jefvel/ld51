@@ -43,6 +43,10 @@ class Laser extends Actor {
 			
 			for (p in state.prisoners) {
 				if (p.x < laser.x) {
+					if (state.wonGame && p == state.player) {
+						continue;
+					}
+
 					if (scanned.contains(p)) {
 						continue;
 					}
@@ -60,7 +64,9 @@ class Laser extends Actor {
 						exhaustedZones.push(zone);
 					} else {
 						failedPrisoners.push(p);
+						p.flashRed();
 						state.onPrisonerScanFail(p);
+						p.markedForDisintegration = true;
 					}
 				}
 			}
@@ -81,6 +87,9 @@ class Laser extends Actor {
 				if (untilNextFail < 0) {
 					untilNextFail = 0.1;
 					var p = failedPrisoners.shift();
+					if (state.wonGame && p == state.player) {
+						return;
+					}
 					if (p.state != Jumping) {
 						p.disintegrate();
 					}

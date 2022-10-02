@@ -8,7 +8,6 @@ import elk.aseprite.AsepriteRes;
 import elk.graphics.Sprite;
 import h2d.Bitmap;
 
-
 enum Team {
 	Friendly;
 	Enemy;
@@ -24,6 +23,9 @@ enum ActorState {
 
 class Prisoner extends Actor {
 	var bm:Bitmap = null;
+	
+	public var markedForDisintegration = false;
+	public var teethed = false;
 
 	public var damage = 1;
 	public var attackTargetCount = 1;
@@ -32,8 +34,8 @@ class Prisoner extends Actor {
 	var aggroGainPerAttack = 1.0;
 	var aggroDecayPerSecond = 0.4;
 
-	public var aggroRadiusPerLevel = 3; 
-	public var maxAggro = 30.;
+	public var aggroRadiusPerLevel = 2.6; 
+	public var maxAggro = 20.;
 	public var lives = 0;
 
 	public var data: CData.Character;
@@ -41,6 +43,7 @@ class Prisoner extends Actor {
 	
 	var input = Controls.instance;
 	public var controlled = false;
+	public var disableControls = false;
 	
 	public var team: Team = Friendly;
 	public var body: echo.Body;
@@ -62,6 +65,11 @@ class Prisoner extends Actor {
 	public var offsetY = new EasedFloat(0, 0.3);
 	
 	var untilAction = Math.random() * 3 + 1;
+	
+	public var lastAttacker: Prisoner = null;
+	public var lastHurtTime = 0.;
+	
+	public var isPassive = false;
 
 	public function new(type: CData.CharacterKind = Player, state: gamestates.PlayState) {
 		super(state);
@@ -74,17 +82,25 @@ class Prisoner extends Actor {
 		livesBm = new Bitmap(heartFrames.frames[0].tile, state.fg);
 
 		data = CData.character.get(type);
+		damage = data.Damage;
 		friction = 20.;
+		if (type == Judge) {
+			friction = 30;
+		}
+		
+		isPassive = state.isMenu;
 		
 		attackTargetCount = data.AttackCount;
 
-		sprite = hxd.Res.loader
-			.loadCache(data.Sprite, AsepriteRes)
-			.toSprite(state.characterLayer);
+		var rs = hxd.Res.loader
+			.loadCache(data.Sprite, AsepriteRes);
 			
-		sprite.originX = 16;
+		sprite = rs.toSprite(state.characterLayer);
+			
+		var d = rs.toAseData();
+		sprite.originX = d.width >> 1;
 		t = Math.random() * 30;
-		sprite.originY = 32;
+		sprite.originY = d.height;
 		
 		body  = state.physics.make({
 			shape: {
@@ -101,7 +117,7 @@ class Prisoner extends Actor {
 
 		state.prisoners.push(this);
 		cowardice = Math.random();
-		rage = Math.random() * 0.1;
+		rage = Math.random() * 0.05;
 	}
 	
 	public function reAddToScene() {
@@ -158,6 +174,9 @@ class Prisoner extends Actor {
 		if (!controlled) {
 			attackTarget = hurter;
 		}
+		
+		lastAttacker = hurter;
+		lastHurtTime = playState.time;
 
 		wandering = false;
 
@@ -259,7 +278,7 @@ class Prisoner extends Actor {
 		gAdd = -2;
 		bAdd = -2;
 		rAdd = 2;
-		fspeed = 0.86;
+		fspeed = 0.99;
 	}
 	
 	var exploded = false;
@@ -295,7 +314,7 @@ class Prisoner extends Actor {
 	
 	public var attackTarget : Prisoner = null;
 	
-	var jumpVel = 0.;
+	public var jumpVel = 0.;
 	var jumpAcc = 0.;
 
 	var wandering = false;
@@ -306,6 +325,7 @@ class Prisoner extends Actor {
 	
 	function findNewAction() {
 		untilAction = Math.random() * 2 + 1;
+		if (isPassive) return;
 
 		if (attackTarget != null) {
 			if (attackTarget.aggroLevel < minAggro) {
@@ -340,7 +360,7 @@ class Prisoner extends Actor {
 		targetY = hxd.Math.clamp(targetY, s.pixelY, s.pixelY + s.height);
 	}
 	
-	var falling = false;
+	public var falling = false;
 	public function fallFromCeiling() {
 		z = -200;
 		jumpVel = 0.;
@@ -373,7 +393,7 @@ class Prisoner extends Actor {
 
 			var ix = 0.;
 			var iy = 0.;
-			if (controlled) {
+			if (controlled && !disableControls) {
 				ix = input.getAnalogValue(WalkX);
 				iy = input.getAnalogValue(WalkY);
 			}
@@ -382,7 +402,7 @@ class Prisoner extends Actor {
 				attackTarget = null;
 			}
 
-			if (!controlled) {
+			if (!controlled && !disableControls && !isPassive) {
 				var wantToStayInSafeZone = false;
 				if (playState.timeUntilScan < 2 + cowardice * 2.5 || playState.laser.scanning) {
 					var t = playState.findClosestSafeZone(x, y);
@@ -465,7 +485,6 @@ class Prisoner extends Actor {
 					}
 				}
 
-				
 				var id = Math.sqrt(ix * ix + iy * iy);
 				if (id > 0) {
 					ix /= id;
@@ -488,15 +507,19 @@ class Prisoner extends Actor {
 		}
 
 		if (state == Idle || state == Attacking && attackCooldown <= 0) {
-			if (controlled) {
-				if (input.isPressed(Attack)) {
-					attack();
+			if (controlled && !disableControls) {
+				if (!falling) {
+					if (input.isPressed(Attack)) {
+						attack();
+					}
 				}
 			}
 		}
 		
 		if (state == Jumping || falling) {
-			jumpVel += dt * 17;
+			if (!playState.isMenu) {
+				jumpVel += dt * 17;
+			}
 			z += jumpVel;
 			if (!falling) {
 				var dx = jumpX - x;
@@ -505,9 +528,11 @@ class Prisoner extends Actor {
 				if (z >= 0) {
 					z = 0;
 					jumpVel *= -0.2;
+					elk.Elk.instance.sounds.playWobble(hxd.Res.sound.land, 0.2);
 					if (Math.abs(jumpVel) < 0.4) {
 						jumpVel = 0;
 						falling = false;
+						playState.startMusic();
 					}
 				}
 			}
@@ -552,7 +577,7 @@ class Prisoner extends Actor {
 		sprite.x = Math.round(x);
 		sprite.y = Math.round(y + z);
 
-		if (state != Dead && (controlled || lives < data.Health) && state != Jumping && !falling) {
+		if (state != Dead && (controlled || lives < data.Health) && state != Jumping && !falling && !playState.isMenu) {
 			livesBm.x = sprite.x - 16;
 			livesBm.y = sprite.y - data.Height - 6;
 			livesBm.tile = heartFrames.frames[lives].tile;

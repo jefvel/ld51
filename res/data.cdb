@@ -58,8 +58,18 @@
 					"kind": null
 				},
 				{
+					"typeStr": "2",
+					"name": "AlwaysAttackPlayer",
+					"kind": null
+				},
+				{
 					"typeStr": "3",
 					"name": "Score",
+					"kind": null
+				},
+				{
+					"typeStr": "3",
+					"name": "Teeth",
 					"kind": null
 				},
 				{
@@ -113,7 +123,7 @@
 					"Name": "Player",
 					"MaxSpeed": 60,
 					"MoveSpeed": 3,
-					"Health": 10,
+					"Health": 36,
 					"Sprite": "img/man.aseprite",
 					"Radius": 7,
 					"FrameEvents": [
@@ -137,13 +147,15 @@
 					"Damage": 1,
 					"Score": 0,
 					"AttackCount": 1,
-					"Rage": 0
+					"Rage": 0,
+					"AlwaysAttackPlayer": false,
+					"Teeth": 0
 				},
 				{
 					"ID": "Enemy",
 					"Name": "Enemy",
 					"Sprite": "img/enemy.aseprite",
-					"Health": 4,
+					"Health": 6,
 					"MoveSpeed": 7,
 					"Radius": 7,
 					"MaxSpeed": 6,
@@ -160,7 +172,9 @@
 					"Damage": 1,
 					"Score": 100,
 					"AttackCount": 1,
-					"Rage": 0.1
+					"Rage": 0.1,
+					"AlwaysAttackPlayer": false,
+					"Teeth": 2
 				},
 				{
 					"ID": "BigEnemy",
@@ -183,7 +197,34 @@
 					"Damage": 2,
 					"Score": 500,
 					"AttackCount": 2,
-					"Rage": 0.1
+					"Rage": 0.1,
+					"AlwaysAttackPlayer": false,
+					"Teeth": 4
+				},
+				{
+					"ID": "Judge",
+					"Name": "Judge",
+					"Sprite": "img/judge.aseprite",
+					"FrameEvents": [
+						{
+							"Frame": 5,
+							"Event": 1
+						}
+					],
+					"Staggerable": false,
+					"AttackCooldown": 0.3,
+					"Score": 2000,
+					"Rage": 0.1,
+					"Damage": 2,
+					"AttackRange": 7,
+					"AttackCount": 2,
+					"Height": 45,
+					"Health": 30,
+					"MoveSpeed": 4,
+					"Radius": 9,
+					"MaxSpeed": 3,
+					"AlwaysAttackPlayer": true,
+					"Teeth": 6
 				}
 			],
 			"separators": [],
@@ -247,6 +288,38 @@
 					"Name": "Sneakers",
 					"Description": "Makes you faster",
 					"Cost": 20
+				},
+				{
+					"ID": "AttackSpeed",
+					"MaxPurchases": 2,
+					"Name": "Oily Gloves",
+					"Description": "Increases attack speed",
+					"Cost": 20
+				}
+			],
+			"separators": [],
+			"props": {}
+		},
+		{
+			"name": "judgelines",
+			"columns": [
+				{
+					"typeStr": "1",
+					"name": "Crime"
+				},
+				{
+					"typeStr": "1",
+					"name": "Verdict"
+				}
+			],
+			"lines": [
+				{
+					"Crime": "For the crimes you have committed",
+					"Verdict": "You are sentenced to multiple levels in the tower of death"
+				},
+				{
+					"Crime": "",
+					"Verdict": ""
 				}
 			],
 			"separators": [],
