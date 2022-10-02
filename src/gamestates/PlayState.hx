@@ -34,7 +34,7 @@ class PlayState extends GameState {
 	var worldMask:Bitmap;
 	var f: RetroFilter;
 	var bg: Object;
-	var fg: Object;
+	public var fg: Object;
 
 	var safeZoneContainer: Object;
 	public var characterLayer: h2d.ZGroup;
@@ -42,7 +42,7 @@ class PlayState extends GameState {
 
 	var player: Prisoner;
 	
-	var laser: Laser;
+	public var laser: Laser;
 
 	var level: Levels_Level;
 	
@@ -208,7 +208,7 @@ class PlayState extends GameState {
 			bm.x = -64;
 			bm.rotation = -Math.PI * 0.01;
 			bm.blendMode = Multiply;
-			new Timeout(0.6, () -> {
+			new Timeout(0.4, () -> {
 				var m = colorFilter.matrix;
 				m.colorSaturate(-1);
 				colorFilter.matrix = m;
@@ -219,7 +219,7 @@ class PlayState extends GameState {
 				bm.y = t.y - 8;
 				bm.tile.scaleToSize(game.s2d.width + 128, t.textHeight + 37);
 
-				new Timeout(1.3, () -> {
+				new Timeout(0.65, () -> {
 					t.text += "\nPress attack to try again";
 					t.y = Math.round((game.s2d.height - t.textHeight) * 0.5);
 
@@ -375,6 +375,16 @@ class PlayState extends GameState {
 		
 		if (canRestart && controls.isPressed(Attack)) {
 			resetGame();
+		}
+		
+		var alive = 0;
+		for (p in prisoners) {
+			if (p.state != Dead) {
+				alive ++;
+			}
+		}
+		if (alive == 1) {
+			openVault();
 		}
 
 		physics.check(dynamics, statics);

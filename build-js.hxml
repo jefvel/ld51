@@ -2,5 +2,13 @@ _base.hxml
 
 tool.generateAssets.hxml
 
+# For optimising JS
+-lib closure
+-D closure_warning_level=QUIET
+-D closure_overwrite
+
+-D no_traces
+--dce full
+
 -js build/web/game.js
 --macro elk.buildutil.WebGenerator.generate()

@@ -1,5 +1,6 @@
 package entities;
 
+import elk.aseprite.AsepriteData;
 import h2d.col.Point;
 import gamestates.PlayState;
 import elk.aseprite.AsepriteRes;
@@ -23,6 +24,7 @@ class Prisoner extends Actor {
 	var bm:Bitmap = null;
 
 	var aggroGainPerAttack = 1.0;
+	public var lives = 0;
 
 	public var data: CData.Character;
 	public var sprite : Sprite;
@@ -46,10 +48,17 @@ class Prisoner extends Actor {
 	
 	public var cowardice = 0.0;
 	public var rage = 0.0;
-	
+	static var heartFrames: AsepriteData = null;
+	var livesBm: Bitmap;
+
 	public function new(type: CData.CharacterKind = Player, state: gamestates.PlayState) {
 		super(state);
 		this.playState = state;
+		if (heartFrames == null) {
+			heartFrames = hxd.Res.img.hearts.toAseData();
+		}
+
+		livesBm = new Bitmap(heartFrames.frames[0].tile, state.fg);
 
 		data = CData.character.get(type);
 		friction = 20.;
@@ -69,6 +78,8 @@ class Prisoner extends Actor {
 			},
 		});
 
+		lives = data.Health;
+
 		body.on_move = setPhysPos;
 		sprite.animation.onEnd = animationEnd;
 		sprite.animation.onEnterFrame = onEnterFrame;
@@ -78,6 +89,8 @@ class Prisoner extends Actor {
 	}
 	
 	function animationEnd(name: String) {
+		if (state == Dead) return;
+
 		if (name == "attack" || name == "hurt") {
 			state = Idle;
 		}
@@ -105,6 +118,8 @@ class Prisoner extends Actor {
 	}
 	
 	public function hurt(hurter: Prisoner) {
+		if (state == Dead) return;
+
 		state = Hurt;
 		if (hurter.x - x < 0) {
 			sprite.scaleX = -1;
@@ -114,6 +129,12 @@ class Prisoner extends Actor {
 
 		if (!controlled) {
 			attackTarget = hurter;
+		}
+		
+		lives --;
+		if (lives <= 0) {
+			lives = 0;
+			disintegrate();
 		}
 
 		sprite.animation.play("hurt", false, true);
@@ -262,7 +283,7 @@ class Prisoner extends Actor {
 			}
 
 			if (!controlled) {
-				if (playState.timeUntilScan < 2 + cowardice * 2.5) {
+				if (playState.timeUntilScan < 2 + cowardice * 2.5 || playState.laser.scanning) {
 					var t = playState.findClosestSafeZone(x, y);
 					if (t != null) {
 						var dx = t.x - x;
@@ -371,5 +392,14 @@ class Prisoner extends Actor {
 	override function render() {
 		sprite.x = Math.round(x);
 		sprite.y = Math.round(y + z);
+
+		if (state != Dead && (controlled || lives < data.Health)) {
+			livesBm.x = sprite.x - 16;
+			livesBm.y = sprite.y + 2;
+			livesBm.tile = heartFrames.frames[lives].tile;
+			livesBm.visible = true;
+		} else {
+			livesBm.visible = false;
+		}
 	}
 }

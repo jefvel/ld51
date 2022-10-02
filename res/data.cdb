@@ -58,7 +58,7 @@
 					"kind": null
 				},
 				{
-					"typeStr": "4",
+					"typeStr": "3",
 					"name": "Health"
 				},
 				{
@@ -83,7 +83,7 @@
 					"Name": "Player",
 					"MaxSpeed": 60,
 					"MoveSpeed": 3,
-					"Health": 4,
+					"Health": 6,
 					"Sprite": "img/man.aseprite",
 					"Radius": 7,
 					"FrameEvents": [
@@ -107,7 +107,7 @@
 					"ID": "Enemy",
 					"Name": "Enemy",
 					"Sprite": "img/enemy.aseprite",
-					"Health": 3,
+					"Health": 4,
 					"MoveSpeed": 7,
 					"Radius": 7,
 					"MaxSpeed": 6,
