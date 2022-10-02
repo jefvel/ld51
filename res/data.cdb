@@ -48,13 +48,43 @@
 					"name": "FrameEvents"
 				},
 				{
+					"typeStr": "2",
+					"name": "Staggerable",
+					"kind": null
+				},
+				{
 					"typeStr": "4",
 					"name": "AttackCooldown",
 					"kind": null
 				},
 				{
+					"typeStr": "3",
+					"name": "Score",
+					"kind": null
+				},
+				{
+					"typeStr": "4",
+					"name": "Rage",
+					"kind": null
+				},
+				{
+					"typeStr": "3",
+					"name": "Damage",
+					"kind": null
+				},
+				{
 					"typeStr": "4",
 					"name": "AttackRange",
+					"kind": null
+				},
+				{
+					"typeStr": "3",
+					"name": "AttackCount",
+					"kind": null
+				},
+				{
+					"typeStr": "4",
+					"name": "Height",
 					"kind": null
 				},
 				{
@@ -83,7 +113,7 @@
 					"Name": "Player",
 					"MaxSpeed": 60,
 					"MoveSpeed": 3,
-					"Health": 6,
+					"Health": 10,
 					"Sprite": "img/man.aseprite",
 					"Radius": 7,
 					"FrameEvents": [
@@ -101,7 +131,13 @@
 						}
 					],
 					"AttackCooldown": 0.2,
-					"AttackRange": 10
+					"AttackRange": 10,
+					"Height": 21,
+					"Staggerable": true,
+					"Damage": 1,
+					"Score": 0,
+					"AttackCount": 1,
+					"Rage": 0
 				},
 				{
 					"ID": "Enemy",
@@ -118,7 +154,99 @@
 						}
 					],
 					"AttackCooldown": 0.25,
-					"AttackRange": 6
+					"AttackRange": 6,
+					"Height": 21,
+					"Staggerable": true,
+					"Damage": 1,
+					"Score": 100,
+					"AttackCount": 1,
+					"Rage": 0.1
+				},
+				{
+					"ID": "BigEnemy",
+					"Name": "Big Enemy",
+					"Sprite": "img/bigenemy.aseprite",
+					"FrameEvents": [
+						{
+							"Frame": 5,
+							"Event": 1
+						}
+					],
+					"AttackCooldown": 0.4,
+					"AttackRange": 13,
+					"Height": 28,
+					"Health": 10,
+					"MoveSpeed": 5,
+					"Radius": 7,
+					"MaxSpeed": 5,
+					"Staggerable": false,
+					"Damage": 2,
+					"Score": 500,
+					"AttackCount": 2,
+					"Rage": 0.1
+				}
+			],
+			"separators": [],
+			"props": {}
+		},
+		{
+			"name": "upgrades",
+			"columns": [
+				{
+					"typeStr": "0",
+					"name": "ID",
+					"kind": null,
+					"scope": null
+				},
+				{
+					"typeStr": "3",
+					"name": "MaxPurchases",
+					"kind": null
+				},
+				{
+					"typeStr": "1",
+					"name": "Name",
+					"kind": null
+				},
+				{
+					"typeStr": "1",
+					"name": "Description",
+					"kind": null
+				},
+				{
+					"typeStr": "3",
+					"name": "Cost",
+					"kind": null
+				}
+			],
+			"lines": [
+				{
+					"ID": "Stronger",
+					"Name": "Get Stronger",
+					"Description": "Increase damage by 1",
+					"Cost": 50,
+					"MaxPurchases": 1
+				},
+				{
+					"ID": "Health",
+					"Name": "Healthy",
+					"Description": "Heal 1 life",
+					"Cost": 5,
+					"MaxPurchases": 5
+				},
+				{
+					"ID": "MultiHit",
+					"MaxPurchases": 1,
+					"Name": "Super Hitter",
+					"Description": "Increase amount of targets you can hit",
+					"Cost": 50
+				},
+				{
+					"ID": "MoveSpeed",
+					"MaxPurchases": 2,
+					"Name": "Sneakers",
+					"Description": "Makes you faster",
+					"Cost": 20
 				}
 			],
 			"separators": [],

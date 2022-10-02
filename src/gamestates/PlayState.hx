@@ -21,6 +21,12 @@ class PlayState extends GameState {
 	var controls = Controls.instance;
 	var arm: Bitmap;
 	var time = 0.;
+	var score(default, set): Int = 0;
+	function set_score(s: Int) {
+		scoreEased.value = s;
+		return score = s;
+	}
+	var scoreEased = new EasedFloat(0, 0.2);
 	var secondProgress = 0.;
 	
 	var checkTime = 3.;
@@ -35,17 +41,24 @@ class PlayState extends GameState {
 	var worldMask:Bitmap;
 	var f: RetroFilter;
 	var bg: Object;
+	
+	var playTimeText: Text;
+	var scoreText: Text;
 	public var fg: Object;
+	
+	public var musicChannel: hxd.snd.Channel;
 
 	var safeZoneContainer: Object;
 	public var characterLayer: h2d.ZGroup;
 	public var laserContainer: Object;
+	
+	public var uiContainer: Object;
 
-	var player: Prisoner;
+	public var player: Prisoner;
 	
 	public var laser: Laser;
 
-	var level: Levels_Level;
+	public var level: Levels_Level;
 	
 	public var actors: Array<Actor> = [];
 	public var prisoners: Array<Prisoner> = [];
@@ -54,12 +67,14 @@ class PlayState extends GameState {
 	var statics : Array<echo.Body>= [];
 	var dynamics: Array<echo.Body> = [];
 	
+	var groundGraphics: Graphics;
 	var debugGraphics: Graphics;
 	var vaultMask: Bitmap;
 	var vaultMaskContainer: Bitmap;
-	var vault: Sprite;
+	public var vault: Sprite;
 	
 	public var safeZones: Array<SafeZone> = [];
+	public var safeZoneCount = 0;
 
 	public function new() {
 		super();
@@ -72,6 +87,35 @@ class PlayState extends GameState {
 	
 	var levelIndex = 0;
 	var levels: Array<Levels_Level> = [];
+	
+	var cachedTexts: Array<{
+		txt: Text,
+		untilFade: Float,
+	}> = [];
+	var cacheTextIndex = 0;
+	public function showTextPopup(score: Int, x: Float, y: Float) {
+		var t = null;
+		if (cachedTexts.length < 10) {
+			var txt = new Text(hxd.Res.fonts.small.toFont(), uiContainer);
+			t = {
+				txt: txt,
+				untilFade: 0.4,
+			};
+			cachedTexts.push(t);
+			t.txt.textAlign = Center;
+		} else {
+			cacheTextIndex ++;
+			if (cacheTextIndex > cachedTexts.length - 1) {
+				cacheTextIndex = 0;
+			}
+			t = cachedTexts[cacheTextIndex];
+		}
+		
+		t.txt.text = score.toMoneyString();
+		t.txt.x = Math.round( world.x + x + Math.random() * 16 - 8);
+		t.txt.y = Math.round(world.y + y + Math.random() * 16 - 8);
+		t.untilFade = 0.4;
+	}
 	
 	override function onEnter() {
 		super.onEnter();
@@ -108,11 +152,32 @@ class PlayState extends GameState {
 			all.Level_0,
 			all.Level_1,
 			all.Level_2,
+			all.Level_3,
 		];
 
 		//worldOffsetY.easeFunction = elk.M.expoOut;
 		
+		flashBm = new Bitmap(h2d.Tile.fromColor(0xf1f2da), container);
+		flashBm.visible = false;
+		
 		loadNextLevel();
+		musicChannel = game.sounds.playMusic(hxd.Res.sound.mainsong, 0.33);
+		uiContainer = new Object(container);
+		scoreText = new Text(hxd.Res.fonts.gridgazer.toFont(), uiContainer);
+		scoreText.x = 8;
+		scoreText.y = 5;
+		scoreText.scale(0.5);
+
+		playTimeText = new Text(hxd.Res.fonts.marumonica.toFont(), uiContainer);
+		playTimeText.y = scoreText.textHeight * 0.5 + scoreText.y;
+		playTimeText.x = scoreText.x;
+	}
+	
+	override function onRemove() {
+		super.onRemove();
+		if (musicChannel != null) {
+			musicChannel.fadeTo(0, 0.1, () -> musicChannel.stop());
+		}
 	}
 	
 	function loadNextLevel() {
@@ -200,6 +265,7 @@ class PlayState extends GameState {
 		vaultOpen = false;
 
 		bg.addChild(l.l_Tiles.render());
+
 		for (v in l.l_Entities.all_Vault) {
 			vault = hxd.Res.img.vault.toSprite(bg);
 			vault.originX = vault.originY = 16;
@@ -221,7 +287,10 @@ class PlayState extends GameState {
 			s.x = z.pixelX;
 			s.y = z.pixelY;
 			safeZones.push(s);
+			safeZoneCount ++;
 		}
+
+		groundGraphics = new Graphics(bg);
 
 		var face = new Bitmap(hxd.Res.img.clockface.toTile(), bg);
 		face.tile.dx = face.tile.dy = -16;
@@ -242,6 +311,10 @@ class PlayState extends GameState {
 			player.reAddToScene();
 			player.finishJump();
 		}
+		
+		// player.damage ++;
+		
+		player.fallFromCeiling();
 
 		player.controlled = true;
 		var spawnPos = l.l_Entities.all_PlayerSpawn[0];
@@ -252,15 +325,61 @@ class PlayState extends GameState {
 			spawnPrisoner();
 		}
 		
+		for (i in 0...level.f_BigEnemies) {
+			spawnPrisoner(BigEnemy);
+		}
+		
 		worldOffsetY.setImmediate(1); //game.s2d.height);
 		worldOffsetY.value = 0;
+
+		running = true;
 	}
 	
-	public function killPrisoner(p: Prisoner) {
+	var flashed = false;
+	public function onPrisonerScanFail(p: Prisoner) {
+		if (p == player) {
+			game.sounds.playWobble(hxd.Res.sound.scanfail, 0.4);
+			musicChannel.fadeTo(0.3);
+			if (!flashed) {
+				flash(1);
+			}
+		}
+	}
+	
+	var flashFrames = 0;
+	var flashBm: Bitmap;
+	public function flash(frames = 1) {
+		flashed = true;
+		flashBm.tile.scaleToSize(game.s2d.width, game.s2d.height);
+		flashBm.visible = true;
+		flashFrames = frames;
+	}
+	
+	public function addScore(amount = 0) {
+		
+	}
+	
+	public function onPrisonerHurt(prisoner: Prisoner, attacker: Prisoner = null) {
+		if (attacker == player) {
+			score += 10;
+			// showTextPopup(10, prisoner.x, prisoner.y - prisoner.data.Height * 0.5);
+		}
+	}
+	
+	public function killPrisoner(p: Prisoner, killer: Prisoner = null) {
 		dynamics.remove(p.body);
 		prisoners.remove(p);
+
+		if (killer == player) {
+			score += p.data.Score;
+			showTextPopup(p.data.Score, p.x, p.y - p.data.Height * 0.5);
+		}
+
 		if (p == player) {
 			loseGame();
+			if (!flashed) {
+				flash();
+			}
 		}
 	}
 	
@@ -275,36 +394,51 @@ class PlayState extends GameState {
 	
 	var timeScale = new EasedFloat(1.0, 0.5);
 	public function loseGame() {
+		running = false;
 		timeScale.setImmediate(0.5);
+		musicChannel.fadeTo(0, 0.5);
 	}
 
+	var gameOverBm: Bitmap = null;
+	var gameOverBmEase = new EasedFloat(0, 0.5);
+	var gameOverFlashEase = new EasedFloat(1, 0.3);
 	public function loseGameFinish() {
+		musicChannel.stop();
+		gameOverBmEase.easeFunction = elk.M.elasticOut;
+
 		new Timeout(0.3, () -> {
 			timeScale.value = 1.0;
 			var bm = new Bitmap(h2d.Tile.fromColor(0x333333), container);
 			var t = new Text(hxd.Res.fonts.marumonica.toFont(), container);
 			t.textAlign = Center;
-			bm.alpha = 0.5;
 			bm.x = -64;
-			bm.rotation = -Math.PI * 0.01;
-			bm.blendMode = Multiply;
 			new Timeout(0.4, () -> {
 				var m = colorFilter.matrix;
 				m.colorSaturate(-1);
 				colorFilter.matrix = m;
 				t.text = "DISINTEGRATED";
+				t.text += '\n - reached floor ${levelIndex} - ';
 				t.x = Math.round(game.s2d.width * 0.5);
 				t.y = Math.round((game.s2d.height - t.textHeight) * 0.5);
+				
+				gameOverBm = bm;
+				gameOverBmEase.value = 1.;
+				gameOverFlashEase.value = 0.;
 
-				bm.y = t.y - 8;
-				bm.tile.scaleToSize(game.s2d.width + 128, t.textHeight + 37);
+				bm.y = Math.round(game.s2d.height * 0.5);
+				bm.x = t.x;
+				bm.tile.scaleToSize(game.s2d.width + 128, t.textHeight * 2 + 37);
+				bm.tile.setCenterRatio();
 
 				new Timeout(0.65, () -> {
-					t.text += "\nPress attack to try again";
+					t.text += "\n\nPress attack to try again";
 					t.y = Math.round((game.s2d.height - t.textHeight) * 0.5);
 
-					bm.y = t.y - 8;
-					bm.tile.scaleToSize(game.s2d.width + 128, t.textHeight + 37);
+					//bm.y = Math.round(game.s2d.height * 0.5);
+					//bm.tile.scaleToSize(game.s2d.width + 128, t.textHeight + 37);
+					//bm.x = t.x;
+					//bm.tile.scaleToSize(game.s2d.width + 128, t.textHeight + 37);
+					//bm.tile.setCenterRatio();
 
 					canRestart = true;
 				});
@@ -314,14 +448,14 @@ class PlayState extends GameState {
 	
 	public var canRestart = false;
 	
-	public function spawnPrisoner() {
-		var p = new Prisoner(Enemy, this);
+	public function spawnPrisoner(type: CData.CharacterKind = Enemy) {
+		var p = new Prisoner(type, this);
 		var s = level.l_Entities.all_EnemySpawn[0];
 		p.setPos(s.pixelX + s.width * Math.random(), s.pixelY + s.height * Math.random());
 		dynamics.push(p.body);
 	}
 	
-	var vaultOpen = false;
+	public var vaultOpen = false;
 	public function openVault() {
 		if (vaultOpen) return;
 		vaultOpen = true;
@@ -331,12 +465,17 @@ class PlayState extends GameState {
 		}
 	}
 	
-	public function jumpIntoPit() {
-		if (player.state != Jumping) {
-			player.jump(vault.x);
+	public function jumpIntoPit(prisoner: Prisoner) {
+		if (prisoner.state != Jumping && prisoner.state != Dead) {
+			prisoner.jump(vault.x);
 			game.sounds.playWobble(hxd.Res.sound.jump, 0.5);
-			vaultMaskContainer.addChild(player.sprite);
-			timeout(1.0, loadNextLevel);
+			vaultMaskContainer.addChild(prisoner.sprite);
+			if (prisoner == player) {
+				running = false;
+				score += 500;
+				showTextPopup(500, player.x, player.y - player.data.Height * 0.5);
+				timeout(1.0, loadNextLevel);
+			}
 		}
 	}
 	
@@ -355,6 +494,7 @@ class PlayState extends GameState {
 				aliveZones ++;
 			}
 		}
+
 		if (aliveZones == 0) {
 			//openVault();
 		}
@@ -446,10 +586,17 @@ class PlayState extends GameState {
 
 		timeUntilScan = interval - (secondProgress + currentSecond);
 	}
+	
+	public var running = true;
 
 	override function tick(dt:Float) {
 		super.tick(dt);
-		time += dt;
+		if (running) {
+			time += dt;
+		}
+		
+		playTimeText.text = time.toTimeString();
+		scoreText.text = Std.int(scoreEased.value).toMoneyString();
 
 		passTime(dt);
 		arm.rotation = armRotation.value;
@@ -462,6 +609,23 @@ class PlayState extends GameState {
 			e.tick(dt);
 		}
 		
+		if (flashFrames >= 0) {
+			flashFrames --;
+			if (flashFrames < 0) {
+				flashBm.visible = false;
+			}
+		}
+		
+		for (t in cachedTexts) {
+			if (t.untilFade > 0) {
+				t.untilFade -= dt;
+				t.txt.visible = true;
+				if (t.untilFade <= 0) {
+					t.txt.visible = false;
+				}
+			}
+		}
+		
 		#if debug
 		if (hxd.Key.isPressed(hxd.Key.P)) {
 			secondProgress = 7;
@@ -470,15 +634,19 @@ class PlayState extends GameState {
 			loadNextLevel();
 		}
 		if (hxd.Key.isPressed(hxd.Key.I)) {
-			jumpIntoPit();
+			jumpIntoPit(player);
 		}
 		#end
 		
 		if (vault.animation.currentFrameIndex > 4)  {
-			var dx = player.x - vault.x;
-			var dy = player.y - vault.y;
-			if (Math.abs(dx) < 20 && Math.abs(dy) < 20) {
-				jumpIntoPit();
+			for (p in prisoners) {
+				if (!laser.failedPrisoners.contains(p)) {
+					var dx = p.x - vault.x;
+					var dy = p.y - vault.y;
+					if (Math.abs(dx) < 20 && Math.abs(dy) < 20) {
+						jumpIntoPit(p);
+					}
+				}
 			}
 		}
 		
@@ -504,13 +672,59 @@ class PlayState extends GameState {
 		physics.check(dynamics, dynamics);
 		
 		// f.transition = Math.sin(time);
+		
+		safeZoneCount = 0;
+		for (s in safeZones) {
+			if (s.isActive) {
+				safeZoneCount ++;
+			}
+		}
 
 		updateCamBounds();
 	}
 	
-	public function findTarget(attacker: Prisoner, dirX = 1.): Prisoner {
+	public function findViableTarget(t: Prisoner): Prisoner {
+		var desperate = safeZoneCount * 3 <= prisoners.length || safeZoneCount <= 1;
+		var closest: Prisoner = null;
+		var closestDist = Math.POSITIVE_INFINITY;
+		var highestAggro = 0.;
+		
+		if (prisoners.length <= 2) {
+			desperate = true;
+		}
+
+		if (t.rage > Math.random()) {
+			desperate = true;
+		}
+
+		for (p in prisoners) {
+			if (p == t) continue;
+			var dx = t.x - p.x;
+			var dy = t.y - p.y;
+			var dSq = dx * dx + dy * dy;
+
+			var maxDistSq = p.aggroLevel * p.aggroRadiusPerLevel;
+			maxDistSq *= maxDistSq;
+
+			if (desperate) {
+				maxDistSq = Math.POSITIVE_INFINITY;
+			}
+
+			if (dSq < closestDist && dSq < maxDistSq) {
+				closestDist = dSq;
+				closest = p;
+				highestAggro = p.aggroLevel;
+			}
+		}
+
+		return closest;
+	}
+	
+	public function findTarget(attacker: Prisoner, dirX = 1., count = 1): Array<Prisoner> {
 		var d = new Point();
 		var d2 = new Point(dirX, 0);
+		
+		var res = [];
 
 		for (p in prisoners) {
 			if (p == attacker) {
@@ -531,11 +745,14 @@ class PlayState extends GameState {
 			prSq = prSq * prSq;
 			
 			if (d.lengthSq() < prSq) {
-				return p;
+				res.push(p);
+				if (res.length >= count) {
+					break;
+				}
 			}
 		}
 		
-		return null;
+		return res;
 	}
 	
 	override function update(dt: Float) {
@@ -546,8 +763,20 @@ class PlayState extends GameState {
 			e.render();
 		}
 		
-		characterLayer.ysort(0);
+		groundGraphics.clear();
+		groundGraphics.lineStyle(1, 0xde5353, 0.5);
+		for (p in prisoners) {
+			if (p.state == Jumping || p.state == Dead) {
+				continue;
+			}
 
+			var r = Math.round(p.aggroLevel * p.aggroRadiusPerLevel);
+			if (r > 2) {
+				groundGraphics.drawCircle(p.sprite.x, p.sprite.y, r);
+			}
+		}
+		
+		characterLayer.ysort(0);
 		
 		if (level != null) {
 			var w = Math.round((game.s2d.width - level.pxWid) * 0.5);
@@ -556,6 +785,7 @@ class PlayState extends GameState {
 			world.x = w;
 			world.y = h;
 		}
+
 		world.alpha = (1 - Math.abs(worldOffsetY.value));
 
 		var sfAlpha = (timeUntilScan < checkTime || laser.scanning) ? 1.0 : 0.1;
@@ -565,6 +795,13 @@ class PlayState extends GameState {
 			} else {
 				s.alpha *= 0.98;
 			}
+		}
+
+		if (gameOverBm != null) {
+			gameOverBm.rotation = -Math.PI * 0.01 * gameOverBmEase.value;
+			var v = gameOverFlashEase.value * 1000;
+			gameOverBm.color.set(v, v, v);
+			gameOverBm.alpha = 0.7 + gameOverFlashEase.value * 0.3;
 		}
 	}
 }

@@ -12,7 +12,7 @@ class Laser extends Actor {
 	var scanned: Array<Prisoner> = [];
 	var state: PlayState = null;
 	
-	var failedPrisoners: Array<Prisoner> = [];
+	public var failedPrisoners: Array<Prisoner> = [];
 	public var onScanDone : Void -> Void;
 
 	public function new(state: PlayState, ?p) {
@@ -60,6 +60,7 @@ class Laser extends Actor {
 						exhaustedZones.push(zone);
 					} else {
 						failedPrisoners.push(p);
+						state.onPrisonerScanFail(p);
 					}
 				}
 			}

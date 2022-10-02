@@ -31,6 +31,9 @@ class Controls {
 		input.bindKeyboardAsStickXY(WalkX, WalkY, Key.UP, Key.LEFT, Key.DOWN, Key.RIGHT);
 		input.bindKeyboard(Attack, [Key.SPACE, Key.X, Key.K]);
 		input.bindKeyboard(ResetGame, [Key.R]);
+
+		input.bindPad(Attack, PadButton.A);
+		input.bindPadLStickXY(WalkX, WalkY);
 	}
 	
 	static function get_instance() {

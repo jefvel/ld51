@@ -9,6 +9,8 @@ class Main extends elk.Elk{
 		CData.init();
 
 		app.states.current = new PlayState();
+		sounds.sfxVolume = 2.0;
+		sounds.musicVolume = 2.8;
 	}
 	
 	override function update(dt: Float) {
