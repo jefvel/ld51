@@ -1,5 +1,6 @@
 package gamestates;
 
+import h3d.Vector;
 import h2d.Text;
 import elk.Timeout;
 import elk.graphics.Sprite;
@@ -54,6 +55,8 @@ class PlayState extends GameState {
 	var dynamics: Array<echo.Body> = [];
 	
 	var debugGraphics: Graphics;
+	var vaultMask: Bitmap;
+	var vaultMaskContainer: Bitmap;
 	var vault: Sprite;
 	
 	public var safeZones: Array<SafeZone> = [];
@@ -66,6 +69,9 @@ class PlayState extends GameState {
 		game.states.current = new PlayState();
 	}
 	var colorFilter: ColorMatrix;
+	
+	var levelIndex = 0;
+	var levels: Array<Levels_Level> = [];
 	
 	override function onEnter() {
 		super.onEnter();
@@ -94,27 +100,84 @@ class PlayState extends GameState {
 		debugGraphics = new Graphics(world);
 
 		var allLevels = new Levels();
+
 		
 		var l = allLevels.all_levels.Level_0;
+		var all = allLevels.all_levels;
+		levels = [
+			all.Level_0,
+			all.Level_1,
+			all.Level_2,
+		];
 
-		loadLevel(l);
+		//worldOffsetY.easeFunction = elk.M.expoOut;
+		
+		loadNextLevel();
 	}
 	
+	function loadNextLevel() {
+		var l = levels[levelIndex];
+
+		levelIndex ++;
+
+		if (level == null) {
+			loadLevel(l);
+		} else {
+			worldOffsetY.easeTime = 2.0;
+			worldOffsetY.value = -1;
+			new Timeout(2.5, () -> {
+				loadLevel(l);
+				worldOffsetY.easeTime = 1.2;
+			});
+		}
+	}
+	
+	var worldOffsetY = new EasedFloat(0, 1.2);
 	function loadLevel(l: Levels_Level) {
 		bg.removeChildren();
 		fg.removeChildren();
+
+		currentSecond = 0;
+		secondProgress = 0;
+		intervalsBeaten = 0;
+		timeUntilScan = interval;
+		armRotation.setImmediate(-Math.PI * 0.5);
+		
 		characterLayer.removeChildren();
+		safeZoneContainer.removeChildren();
+		characterLayer.removeChildren();
+		laserContainer.removeChildren();
+
+		for (a in actors) {
+			if (a == player) continue;
+			actors.remove(a);
+		}
+
+		for (e in prisoners) {
+			if (e == player) {
+				continue;
+			}
+			removePrisoner(e);
+		}
+
+		statics = [];
 		
 		level = l;
 		
 		worldMask.tile.scaleToSize(l.pxWid, l.pxHei);
+		var m = colorFilter.matrix;
+		var c = Vector.fromColor(level.f_Tint_int);
+		m.identity();
+		m.scale(c.x, c.y, c.z);
 
-		physics = echo.Echo.start({
-			width: level.pxWid,
-			height: level.pxHei,
-			gravity_y: 0,
-			iterations: 2
-		});
+		if (physics == null) {
+			physics = echo.Echo.start({
+				width: level.pxWid,
+				height: level.pxHei,
+				gravity_y: 0,
+				iterations: 2
+			});
+		}
 		
 		for (coll in level.l_Collisions.all_CollisionBox) {
 			var body = physics.make({
@@ -133,18 +196,26 @@ class PlayState extends GameState {
 		}
 		
 		hxd.Res.img.tiles.toTile();
+		
+		vaultOpen = false;
 
 		bg.addChild(l.l_Tiles.render());
-		vault = hxd.Res.img.vault.toSprite(bg);
-		vault.originX = vault.originY = 16;
-		vault.animation.play("closed");
 		for (v in l.l_Entities.all_Vault) {
+			vault = hxd.Res.img.vault.toSprite(bg);
+			vault.originX = vault.originY = 16;
+			vault.animation.play("closed");
 			vault.x = v.pixelX;
 			vault.y = v.pixelY;
 		}
+		
+		vaultMaskContainer = new Bitmap(fg);
+		vaultMask = new Bitmap(h2d.Tile.fromColor(0xffffff), vaultMaskContainer);
+		vaultMask.tile.scaleToSize(game.s2d.width, vault.y + 14);
+		vaultMaskContainer.filter = new h2d.filter.Mask(vaultMask);
 
 		fg.addChild(l.l_Foreground.render());
 		
+		safeZones = [];
 		for (z in l.l_SafeZones.all_SafeZone) {
 			var s = new SafeZone(safeZoneContainer);
 			s.x = z.pixelX;
@@ -165,15 +236,24 @@ class PlayState extends GameState {
 		laser = new Laser(this, laserContainer);
 		laser.onScanDone = onScanDone;
 		
-		player = new Prisoner(Player, this);
+		if (player == null) {
+			player = new Prisoner(Player, this);
+		} else {
+			player.reAddToScene();
+			player.finishJump();
+		}
+
 		player.controlled = true;
 		var spawnPos = l.l_Entities.all_PlayerSpawn[0];
 		player.setPos(spawnPos.pixelX, spawnPos.pixelY);
 		dynamics.push(player.body);
 		
-		for (i in 0...14) {
+		for (i in 0...level.f_Enemies) {
 			spawnPrisoner();
 		}
+		
+		worldOffsetY.setImmediate(1); //game.s2d.height);
+		worldOffsetY.value = 0;
 	}
 	
 	public function killPrisoner(p: Prisoner) {
@@ -251,6 +331,23 @@ class PlayState extends GameState {
 		}
 	}
 	
+	public function jumpIntoPit() {
+		if (player.state != Jumping) {
+			player.jump(vault.x);
+			game.sounds.playWobble(hxd.Res.sound.jump, 0.5);
+			vaultMaskContainer.addChild(player.sprite);
+			timeout(1.0, loadNextLevel);
+		}
+	}
+	
+	function timeout(duration: Float, call: Void -> Void) {
+		new Timeout(duration, () -> {
+			if (game.states.current == this) {
+				call();
+			}
+		});
+	}
+	
 	function onScanDone() {
 		var aliveZones = 0;
 		for (s in safeZones) {
@@ -259,7 +356,7 @@ class PlayState extends GameState {
 			}
 		}
 		if (aliveZones == 0) {
-			openVault();
+			//openVault();
 		}
 	}
 	
@@ -315,8 +412,10 @@ class PlayState extends GameState {
 	}
 	
 	var intervalsBeaten = 0;
+	var totalIntervalsBeaten = 0;
 	function intervalComplete() {
 		intervalsBeaten ++;
+		totalIntervalsBeaten ++;
 		laser.startScan();
 	}
 	
@@ -367,7 +466,21 @@ class PlayState extends GameState {
 		if (hxd.Key.isPressed(hxd.Key.P)) {
 			secondProgress = 7;
 		}
+		if (hxd.Key.isPressed(hxd.Key.L)) {
+			loadNextLevel();
+		}
+		if (hxd.Key.isPressed(hxd.Key.I)) {
+			jumpIntoPit();
+		}
 		#end
+		
+		if (vault.animation.currentFrameIndex > 4)  {
+			var dx = player.x - vault.x;
+			var dy = player.y - vault.y;
+			if (Math.abs(dx) < 20 && Math.abs(dy) < 20) {
+				jumpIntoPit();
+			}
+		}
 		
 		if (controls.isPressed(ResetGame)) {
 			resetGame();
@@ -435,11 +548,15 @@ class PlayState extends GameState {
 		
 		characterLayer.ysort(0);
 
-		var w = Math.floor((game.s2d.width - level.pxWid) * 0.5);
-		var h = Math.floor((game.s2d.width - level.pxWid) * 0.5);
+		
+		if (level != null) {
+			var w = Math.round((game.s2d.width - level.pxWid) * 0.5);
+			var h = Math.round((game.s2d.width - level.pxWid) * 0.5 + worldOffsetY.value * game.s2d.height);
 
-		world.x = w;
-		world.y = h;
+			world.x = w;
+			world.y = h;
+		}
+		world.alpha = (1 - Math.abs(worldOffsetY.value));
 
 		var sfAlpha = (timeUntilScan < checkTime || laser.scanning) ? 1.0 : 0.1;
 		for (s in safeZones) {

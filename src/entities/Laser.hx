@@ -47,6 +47,11 @@ class Laser extends Actor {
 						continue;
 					}
 					
+					// Jumping guys can't be hurt
+					if (p.state == Jumping) {
+						continue;
+					}
+					
 					scanned.push(p);
 					
 					var zone = state.inSafeZone(p.x, p.y);
@@ -74,7 +79,10 @@ class Laser extends Actor {
 				untilNextFail -= dt;
 				if (untilNextFail < 0) {
 					untilNextFail = 0.1;
-					failedPrisoners.shift().disintegrate();
+					var p = failedPrisoners.shift();
+					if (p.state != Jumping) {
+						p.disintegrate();
+					}
 				}
 			}
 		}
